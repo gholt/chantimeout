@@ -43,8 +43,9 @@ isn't too bad. What I need is a reusable context...
 So I made a really basic reusable context; just the bare minimums to get things
 to "work". That's context2 in the tests. It's slower than a straight
 time.Timer, but faster than the default context1 and way better behaved on
-mallocs and memory pressure. I pushed it up to github.com/gholt/context and
-will probably flesh it out over time.
+mallocs and memory pressure. I pushed it up to
+[github.com/gholt/context](https://github.com/gholt/context) and will probably
+flesh it out over time.
 
 Have I completely missed something obvious? A good way to use time.After? Maybe
 some other way of doing timeouts? If so, please, please let me know by popping
