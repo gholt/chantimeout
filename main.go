@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"time"
 
+	gholtcontext "github.com/gholt/context"
 	"golang.org/x/net/context"
 )
 
@@ -27,6 +28,8 @@ func main() {
 		timer()
 	case "context1":
 		context1()
+	case "context2":
+		context2()
 	}
 	runtime.ReadMemStats(memStats)
 	endMemSys := memStats.Sys
@@ -172,7 +175,36 @@ func context1() {
 		ctx, cancel := context.WithTimeout(bgctx, time.Second)
 		select {
 		case messageChan <- &message{}:
-			cancel()
+		case <-ctx.Done():
+			timeouts++
+		}
+		cancel()
+	}
+	close(messageChan)
+	<-doneChan
+	elapsed := time.Since(begin)
+	fmt.Printf("context1:  %dns/message, %s elapsed, %d timeouts\n", int64(elapsed)/COUNT, elapsed, timeouts)
+}
+
+func context2() {
+	begin := time.Now()
+	type message struct{}
+	messageChan := make(chan *message)
+	doneChan := make(chan struct{})
+	go func() {
+		for {
+			if <-messageChan == nil {
+				doneChan <- struct{}{}
+				return
+			}
+		}
+	}()
+	ctx := gholtcontext.New(time.Second)
+	var timeouts int
+	for i := 0; i < COUNT; i++ {
+		ctx.Reinit(time.Second)
+		select {
+		case messageChan <- &message{}:
 		case <-ctx.Done():
 			timeouts++
 		}
@@ -180,5 +212,5 @@ func context1() {
 	close(messageChan)
 	<-doneChan
 	elapsed := time.Since(begin)
-	fmt.Printf("context1:  %dns/message, %s elapsed, %d timeouts\n", int64(elapsed)/COUNT, elapsed, timeouts)
+	fmt.Printf("context2:  %dns/message, %s elapsed, %d timeouts\n", int64(elapsed)/COUNT, elapsed, timeouts)
 }
