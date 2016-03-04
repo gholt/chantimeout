@@ -26,8 +26,8 @@ discouraging heavy use of this. "May cause destructive use of memory and thrash
 the garbage collector; only use in extreme moderation."
 
 The time.Ticker code isn't going to give you a perfect one second timeout;
-it'll be somewhere between just over half a second to just under a second. But
-it could be modified to have a better resolution if needed.
+it'll be somewhere between just over a second to just under two seconds. But it
+could be modified to have a better resolution if needed.
 
 Have I completely missed something obvious? A good way to use time.After? Maybe
 some other way of doing timeouts? If so, please, please let me know by popping
