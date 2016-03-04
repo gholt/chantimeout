@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"runtime"
 	"time"
+
+	"golang.org/x/net/context"
 )
 
 const COUNT = 10000000
@@ -11,37 +14,23 @@ const COUNT = 10000000
 func main() {
 	memStats := &runtime.MemStats{}
 	runtime.ReadMemStats(memStats)
-
 	beginMemSys := memStats.Sys
 	beginMemMallocs := memStats.Mallocs
-	noTimeout()
+	switch os.Args[1] {
+	case "noTimeout":
+		noTimeout()
+	case "timeAfter":
+		timeAfter()
+	case "ticker":
+		ticker()
+	case "timer":
+		timer()
+	case "context1":
+		context1()
+	}
 	runtime.ReadMemStats(memStats)
 	endMemSys := memStats.Sys
 	endMemMallocs := memStats.Mallocs
-	fmt.Printf("    %d sys, %d mallocs\n", endMemSys-beginMemSys, endMemMallocs-beginMemMallocs)
-
-	beginMemSys = endMemSys
-	beginMemMallocs = endMemMallocs
-	timeAfter()
-	runtime.ReadMemStats(memStats)
-	endMemSys = memStats.Sys
-	endMemMallocs = memStats.Mallocs
-	fmt.Printf("    %d sys, %d mallocs\n", endMemSys-beginMemSys, endMemMallocs-beginMemMallocs)
-
-	beginMemSys = endMemSys
-	beginMemMallocs = endMemMallocs
-	ticker()
-	runtime.ReadMemStats(memStats)
-	endMemSys = memStats.Sys
-	endMemMallocs = memStats.Mallocs
-	fmt.Printf("    %d sys, %d mallocs\n", endMemSys-beginMemSys, endMemMallocs-beginMemMallocs)
-
-	beginMemSys = endMemSys
-	beginMemMallocs = endMemMallocs
-	timer()
-	runtime.ReadMemStats(memStats)
-	endMemSys = memStats.Sys
-	endMemMallocs = memStats.Mallocs
 	fmt.Printf("    %d sys, %d mallocs\n", endMemSys-beginMemSys, endMemMallocs-beginMemMallocs)
 }
 
@@ -162,4 +151,34 @@ func timer() {
 	<-doneChan
 	elapsed := time.Since(begin)
 	fmt.Printf("timer:     %dns/message, %s elapsed, %d timeouts\n", int64(elapsed)/COUNT, elapsed, timeouts)
+}
+
+func context1() {
+	begin := time.Now()
+	type message struct{}
+	messageChan := make(chan *message)
+	doneChan := make(chan struct{})
+	go func() {
+		for {
+			if <-messageChan == nil {
+				doneChan <- struct{}{}
+				return
+			}
+		}
+	}()
+	bgctx := context.Background()
+	var timeouts int
+	for i := 0; i < COUNT; i++ {
+		ctx, cancel := context.WithTimeout(bgctx, time.Second)
+		select {
+		case messageChan <- &message{}:
+			cancel()
+		case <-ctx.Done():
+			timeouts++
+		}
+	}
+	close(messageChan)
+	<-doneChan
+	elapsed := time.Since(begin)
+	fmt.Printf("context1:  %dns/message, %s elapsed, %d timeouts\n", int64(elapsed)/COUNT, elapsed, timeouts)
 }
