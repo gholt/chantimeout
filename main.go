@@ -11,26 +11,34 @@ const COUNT = 10000000
 func main() {
 	memStats := &runtime.MemStats{}
 	runtime.ReadMemStats(memStats)
+
 	beginMemSys := memStats.Sys
 	beginMemMallocs := memStats.Mallocs
-
 	noTimeout()
 	runtime.ReadMemStats(memStats)
 	endMemSys := memStats.Sys
 	endMemMallocs := memStats.Mallocs
 	fmt.Printf("    %d sys, %d mallocs\n", endMemSys-beginMemSys, endMemMallocs-beginMemMallocs)
+
 	beginMemSys = endMemSys
 	beginMemMallocs = endMemMallocs
-
 	timeAfter()
 	runtime.ReadMemStats(memStats)
 	endMemSys = memStats.Sys
 	endMemMallocs = memStats.Mallocs
 	fmt.Printf("    %d sys, %d mallocs\n", endMemSys-beginMemSys, endMemMallocs-beginMemMallocs)
+
 	beginMemSys = endMemSys
 	beginMemMallocs = endMemMallocs
-
 	ticker()
+	runtime.ReadMemStats(memStats)
+	endMemSys = memStats.Sys
+	endMemMallocs = memStats.Mallocs
+	fmt.Printf("    %d sys, %d mallocs\n", endMemSys-beginMemSys, endMemMallocs-beginMemMallocs)
+
+	beginMemSys = endMemSys
+	beginMemMallocs = endMemMallocs
+	timer()
 	runtime.ReadMemStats(memStats)
 	endMemSys = memStats.Sys
 	endMemMallocs = memStats.Mallocs
@@ -118,4 +126,40 @@ func ticker() {
 	<-doneChan
 	elapsed := time.Since(begin)
 	fmt.Printf("ticker:    %dns/message, %s elapsed, %d timeouts\n", int64(elapsed)/COUNT, elapsed, timeouts)
+}
+
+func timer() {
+	begin := time.Now()
+	type message struct{}
+	messageChan := make(chan *message)
+	doneChan := make(chan struct{})
+	go func() {
+		for {
+			if <-messageChan == nil {
+				doneChan <- struct{}{}
+				return
+			}
+		}
+	}()
+	timer := time.NewTimer(time.Second)
+	if !timer.Stop() {
+		<-timer.C
+	}
+	var timeouts int
+	for i := 0; i < COUNT; i++ {
+		timer.Reset(time.Second)
+		select {
+		case messageChan <- &message{}:
+			if !timer.Stop() {
+				<-timer.C
+			}
+		case <-timer.C:
+			timeouts++
+		}
+	}
+	timer.Stop()
+	close(messageChan)
+	<-doneChan
+	elapsed := time.Since(begin)
+	fmt.Printf("timer:     %dns/message, %s elapsed, %d timeouts\n", int64(elapsed)/COUNT, elapsed, timeouts)
 }
